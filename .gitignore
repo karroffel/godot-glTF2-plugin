@@ -30,3 +30,8 @@
 *.exe
 *.out
 *.app
+
+.sconsign.dblite
+
+# QtCreator files
+godot-glTF2-plugin.*
