@@ -81,6 +81,10 @@ sources = []
 add_sources(sources, 'src', 'cpp')
 
 
+# add tinygltf thirdparty library
+
+env.Append(CPPPATH=['thirdparty/tinygltf'])
+
 env.Append(LIBPATH=['godot-cpp/bin'])
 env.Append(LIBS=['godot-cpp.linux.64'])
 

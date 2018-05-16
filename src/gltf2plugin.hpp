@@ -8,14 +8,22 @@
 #include <Godot.hpp>
 
 #include <Reference.hpp>
+#include <ArrayMesh.hpp>
+
+#include "tiny_gltf.h"
 
 class Gltf2Plugin : public godot::GodotScript<godot::Reference> {
 	GODOT_CLASS(Gltf2Plugin)
+	
+	tinygltf::TinyGLTF loader;
+	
 public:
 	
 	static void _register_methods();
 	
 	void _init();
+	
+	godot::Ref<godot::ArrayMesh> load_gltf2_file(godot::String file_path);
 };
 
 #endif // GLTF2PLUGIN_HPP
