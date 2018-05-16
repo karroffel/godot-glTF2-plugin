@@ -6,6 +6,11 @@
 
 #include "gltf2plugin.hpp"
 
+#define TINYGLTF_LOADER_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "tiny_gltf_loader.h"
+
 extern "C" void GDN_EXPORT godot_gltf_plugin_gdnative_init(
                 const godot_gdnative_init_options *options)
 {

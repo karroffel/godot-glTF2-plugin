@@ -1,0 +1,14 @@
+[general]
+
+singleton=false
+load_once=true
+symbol_prefix="godot_gltf_plugin_"
+reloadable=true
+
+[entry]
+
+X11.64="res://addons/de.karroffel.gltf2/bin/libgodot-glTF2-plugin.linux.64.so"
+
+[dependencies]
+
+X11.64=[  ]

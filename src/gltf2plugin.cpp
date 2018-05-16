@@ -6,11 +6,6 @@
 
 #include <cstring>
 
-#define TINYGLTF_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "tiny_gltf.h"
-
 using namespace godot;
 
 void Gltf2Plugin::_register_methods()
@@ -20,103 +15,241 @@ void Gltf2Plugin::_register_methods()
 
 void Gltf2Plugin::_init()
 {
-	Godot::print("Gltf2Plugin says hello!");
 }
 
-Ref<ArrayMesh> Gltf2Plugin::load_gltf2_file(String file_path)
+Dictionary Gltf2Plugin::load_gltf2_file(String file_path)
 {
-	Godot::print(String("loading file: ") + file_path);
-	
 	tinygltf::Model model;
 	
 	std::string err;
 	
 	std::string filename = file_path.utf8().get_data();
 	
+	Dictionary gltf_file;
+	
+	gltf_file["filename"] = file_path;
+	gltf_file["valid"] = false;
+	
 	bool ret = loader.LoadASCIIFromFile(&model, &err, filename);
 	
 	if (!err.empty()) {
 		Godot::print(String(err.c_str()));
-		return Ref<ArrayMesh>();
+		return gltf_file;
 	}
 	
 	if (!ret) {
 		Godot::print("Could not parse glTF file");
-		return Ref<ArrayMesh>();
+		return gltf_file;
 	}
 	
 	if (model.meshes.size() < 1) {
 		Godot::print("No mesh found in glTF file");
-		return Ref<ArrayMesh>();
+		return gltf_file;
 	}
 	
-	Ref<ArrayMesh> mesh = new ArrayMesh;
+	gltf_file["valid"] = true;
 	
-	tinygltf::Mesh &gltf_mesh = model.meshes[0];
+	Dictionary meshes;
 	
-	for (auto surface : gltf_mesh.primitives) {
+	for (auto gltf_mesh : model.meshes) {
+	
+		Ref<ArrayMesh> mesh = new ArrayMesh;
 		
-		int primitive = 0;
-		
-		switch (surface.mode) {
-		case TINYGLTF_MODE_TRIANGLES:
-			primitive = ArrayMesh::PRIMITIVE_TRIANGLES;
-			break;
-		case TINYGLTF_MODE_TRIANGLE_FAN:
-			primitive = ArrayMesh::PRIMITIVE_TRIANGLE_FAN;
-			break;
-		case TINYGLTF_MODE_LINE:
-			primitive = ArrayMesh::PRIMITIVE_LINES;
-			break;
-		default:
-			Godot::print("unimplemented surface mode");
-			continue;
+		for (auto surface : gltf_mesh.primitives) {
+			
+			int primitive = 0;
+			
+			switch (surface.mode) {
+			case TINYGLTF_MODE_TRIANGLES:
+				primitive = ArrayMesh::PRIMITIVE_TRIANGLES;
+				break;
+			case TINYGLTF_MODE_TRIANGLE_FAN:
+				primitive = ArrayMesh::PRIMITIVE_TRIANGLE_FAN;
+				break;
+			case TINYGLTF_MODE_LINE:
+				primitive = ArrayMesh::PRIMITIVE_LINES;
+				break;
+			default:
+				Godot::print("unimplemented surface mode");
+				continue;
+			}
+			
+			Array arrays;
+			
+			arrays.resize(ArrayMesh::ARRAY_MAX);
+			
+			// indices
+			{
+				PoolIntArray indices;
+				
+				auto accessor = model.accessors[surface.indices];
+				
+				auto buffer_view = model.bufferViews[accessor.bufferView];
+				
+				std::vector<unsigned char> data = model.buffers[buffer_view.buffer].data;
+				
+				size_t num_indicies = accessor.count;
+				
+				indices.resize(num_indicies);
+				
+				{
+					auto write = indices.write();
+					
+					uint8_t *buffer = (uint8_t *) data.data() + buffer_view.byteOffset;
+					
+					switch (accessor.componentType) {
+					
+					case TINYGLTF_COMPONENT_TYPE_BYTE: {
+						for (size_t i = 0; i < num_indicies; i++) {
+							write[i] = *(int8_t *) &buffer[i * sizeof(int8_t)];
+						}
+					} break;
+						
+					case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE: {
+						for (size_t i = 0; i < num_indicies; i++) {
+							write[i] = *(uint8_t *) &buffer[i * sizeof(uint8_t)];
+						}
+					} break;
+						
+					case TINYGLTF_COMPONENT_TYPE_SHORT: {
+						for (size_t i = 0; i < num_indicies; i++) {
+							write[i] = *(int16_t *) &buffer[i * sizeof(int16_t)];
+						}
+					} break;
+						
+					case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
+						for (size_t i = 0; i < num_indicies; i++) {
+							write[i] = *(uint16_t *) &buffer[i * sizeof(uint16_t)];
+						}
+					} break;
+						
+					case TINYGLTF_COMPONENT_TYPE_INT: {
+						for (size_t i = 0; i < num_indicies; i++) {
+							write[i] = *(int32_t *) &buffer[i * sizeof(int32_t)];
+						}
+					} break;
+						
+					case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
+						for (size_t i = 0; i < num_indicies; i++) {
+							write[i] = *(uint32_t *) &buffer[i * sizeof(uint32_t)];
+						}
+					} break;
+					default:
+						break;
+					}
+					
+				}
+				
+				arrays[ArrayMesh::ARRAY_INDEX] = indices;
+			}
+			
+			// vertices
+			if (surface.attributes.count("POSITION")) {
+				PoolVector3Array vertices;
+				
+				auto accessor = model.accessors[surface.attributes["POSITION"]];
+				
+				auto buffer_view = model.bufferViews[accessor.bufferView];
+				
+				std::vector<unsigned char> data = model.buffers[buffer_view.buffer].data;
+				
+				size_t num_vertices = accessor.count;
+				
+				size_t stride = buffer_view.byteStride;
+				
+				if (stride < buffer_view.byteLength) {
+					stride = buffer_view.byteLength;
+				}
+				
+				vertices.resize(num_vertices);
+				
+				{
+					auto write = vertices.write();
+					
+					uint8_t *buffer = (uint8_t *) data.data() + buffer_view.byteOffset;
+					
+					for (size_t i = 0; i < num_vertices; i++) {
+						Vector3 position = *(Vector3 *) &buffer[i * stride];
+						write[i] = position;
+					}
+				}
+				
+				arrays[ArrayMesh::ARRAY_VERTEX] = vertices;
+			}
+			
+			if (surface.attributes.count("NORMAL")) {
+				PoolVector3Array normals;
+				
+				auto accessor = model.accessors[surface.attributes["NORMAL"]];
+				
+				auto buffer_view = model.bufferViews[accessor.bufferView];
+				
+				std::vector<unsigned char> data = model.buffers[buffer_view.buffer].data;
+				
+				size_t num_normals = accessor.count;
+				
+				size_t stride = buffer_view.byteStride;
+				
+				if (stride < buffer_view.byteLength) {
+					stride = buffer_view.byteLength;
+				}
+				
+				normals.resize(num_normals);
+				
+				{
+					auto write = normals.write();
+					
+					uint8_t *buffer = (uint8_t *) data.data() + buffer_view.byteOffset;
+					
+					for (size_t i = 0; i < num_normals; i++) {
+						Vector3 normal = *(Vector3 *) &buffer[i * stride];
+						write[i] = -normal;
+					}
+				}
+				
+				arrays[ArrayMesh::ARRAY_NORMAL] = normals;
+			}
+			
+			if (surface.attributes.count("TEXCOORD_0")) {
+				PoolVector2Array uvs;
+				
+				auto accessor = model.accessors[surface.attributes["TEXCOORD_0"]];
+				
+				auto buffer_view = model.bufferViews[accessor.bufferView];
+				
+				std::vector<unsigned char> data = model.buffers[buffer_view.buffer].data;
+				
+				size_t num_uvs = accessor.count;
+				
+				size_t stride = buffer_view.byteStride;
+				
+				if (stride < buffer_view.byteLength) {
+					stride = buffer_view.byteLength;
+				}
+				
+				uvs.resize(num_uvs);
+				
+				{
+					auto write = uvs.write();
+					
+					uint8_t *buffer = (uint8_t *) data.data() + buffer_view.byteOffset;
+					
+					for (size_t i = 0; i < num_uvs; i++) {
+						Vector2 uv = *(Vector2 *) &buffer[i * stride];
+						write[i] = uv;
+					}
+				}
+				
+				arrays[ArrayMesh::ARRAY_TEX_UV] = uvs;
+			}
+			
+			mesh->add_surface_from_arrays(primitive, arrays);
 		}
 		
-		Array arrays;
-		
-		arrays.resize(ArrayMesh::ARRAY_MAX);
-		
-		// indices
-		{
-			PoolIntArray indices;
-			
-			int buffer_view_idx = model.accessors[surface.indices].bufferView;
-			
-			auto buffer_view = model.bufferViews[buffer_view_idx];
-			
-			std::vector<unsigned char> data = model.buffers[buffer_view.buffer].data;
-			
-			// TODO do actual copying
-			
-			arrays[ArrayMesh::ARRAY_INDEX] = indices;
-		}
-		
-		// vertices
-		if (surface.attributes.count("POSITION")) {
-			PoolVector3Array vertices;
-			
-			int buffer_view_idx = model.accessors[surface.attributes["POSITION"]].bufferView;
-			
-			auto buffer_view = model.bufferViews[buffer_view_idx];
-			
-			std::vector<unsigned char> data = model.buffers[buffer_view.buffer].data;
-			
-			// TODO do actual copying
-			
-			arrays[ArrayMesh::ARRAY_VERTEX] = vertices;
-		}
-		
-		if (surface.attributes.count("NORMAL")) {
-			// TODO
-		}
-		
-		if (surface.attributes.count("TEXCOORD_0")) {
-			// TODO
-		}
-		
-		mesh->add_surface_from_arrays(primitive, arrays);
+		meshes[String(gltf_mesh.name.c_str())] = mesh;
 	}
 	
-	return mesh;
+	gltf_file["meshes"] = meshes;
+	
+	return gltf_file;
 }
