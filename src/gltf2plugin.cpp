@@ -10,14 +10,14 @@ using namespace godot;
 
 void Gltf2Plugin::_register_methods()
 {
-	register_method("load_gltf2_file", &Gltf2Plugin::load_gltf2_file);
+	register_method("load_file", &Gltf2Plugin::load_file);
 }
 
 void Gltf2Plugin::_init()
 {
 }
 
-Dictionary Gltf2Plugin::load_gltf2_file(String file_path)
+Dictionary Gltf2Plugin::load_file(String file_path)
 {
 	tinygltf::Model model;
 	
@@ -29,16 +29,21 @@ Dictionary Gltf2Plugin::load_gltf2_file(String file_path)
 	
 	gltf_file["filename"] = file_path;
 	gltf_file["valid"] = false;
-	
-	bool ret = loader.LoadASCIIFromFile(&model, &err, filename);
-	
-	if (!err.empty()) {
-		Godot::print(String(err.c_str()));
+
+	bool ret = false;
+
+	if (filename.substr(filename.size() - 5) == ".gltf") {
+		ret = tinygltf::TinyGLTF().LoadASCIIFromFile(&model, &err, filename);
+
+	} else if (filename.substr(filename.size() - 4) == ".glb") {
+		ret = tinygltf::TinyGLTF().LoadBinaryFromFile(&model, &err, filename);
+	} else {
+		Godot::print_error("Can only load glb and gltf files!", "load_file", "gltf2plugin.cpp", __LINE__);
 		return gltf_file;
 	}
 	
 	if (!ret) {
-		Godot::print("Could not parse glTF file");
+		Godot::print("Could not parse glTF file: " + String(err.c_str()));
 		return gltf_file;
 	}
 	
@@ -156,11 +161,11 @@ Dictionary Gltf2Plugin::load_gltf2_file(String file_path)
 				size_t num_vertices = accessor.count;
 				
 				size_t stride = buffer_view.byteStride;
-				
-				if (stride < buffer_view.byteLength) {
-					stride = buffer_view.byteLength;
+
+				if (stride == 0) {
+					stride = sizeof(Vector3);
 				}
-				
+
 				vertices.resize(num_vertices);
 				
 				{
@@ -189,11 +194,11 @@ Dictionary Gltf2Plugin::load_gltf2_file(String file_path)
 				size_t num_normals = accessor.count;
 				
 				size_t stride = buffer_view.byteStride;
-				
-				if (stride < buffer_view.byteLength) {
-					stride = buffer_view.byteLength;
+
+				if (stride == 0) {
+					stride = sizeof(Vector3);
 				}
-				
+
 				normals.resize(num_normals);
 				
 				{
@@ -209,7 +214,7 @@ Dictionary Gltf2Plugin::load_gltf2_file(String file_path)
 				
 				arrays[ArrayMesh::ARRAY_NORMAL] = normals;
 			}
-			
+
 			if (surface.attributes.count("TEXCOORD_0")) {
 				PoolVector2Array uvs;
 				
@@ -222,11 +227,11 @@ Dictionary Gltf2Plugin::load_gltf2_file(String file_path)
 				size_t num_uvs = accessor.count;
 				
 				size_t stride = buffer_view.byteStride;
-				
-				if (stride < buffer_view.byteLength) {
-					stride = buffer_view.byteLength;
+
+				if (stride == 0) {
+					stride = sizeof(Vector2);
 				}
-				
+
 				uvs.resize(num_uvs);
 				
 				{

@@ -10,20 +10,17 @@
 #include <Reference.hpp>
 #include <ArrayMesh.hpp>
 
-#include "tiny_gltf_loader.h"
+#include "tiny_gltf.h"
 
 class Gltf2Plugin : public godot::GodotScript<godot::Reference> {
 	GODOT_CLASS(Gltf2Plugin)
-	
-	tinygltf::TinyGLTFLoader loader;
-	
 public:
 	
 	static void _register_methods();
 	
 	void _init();
 	
-	godot::Dictionary load_gltf2_file(godot::String file_path);
+	godot::Dictionary load_file(godot::String file_path);
 };
 
 #endif // GLTF2PLUGIN_HPP

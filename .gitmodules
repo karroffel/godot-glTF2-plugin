@@ -1,6 +1,6 @@
 [submodule "godot-cpp"]
 	path = godot-cpp
-	url = git@github.com:GodotNativeTools/godot-cpp.git
+	url = https://github.com/GodotNativeTools/godot-cpp.git
 [submodule "thirdparty/tinygltf"]
 	path = thirdparty/tinygltf
-	url = git@github.com:syoyo/tinygltf.git
+	url = https://github.com/syoyo/tinygltf.git
